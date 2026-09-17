@@ -23,18 +23,32 @@ function handles either response.
 - For every skill that genuinely matches the request, call `load_skill` with that
   skill's name -- none, one, or several calls.
 - Never invent a skill name not listed in Available Skills.
-- Missing or ambiguous request: use `ask_user_question` instead of guessing.
+- If it's genuinely unclear which skill (or none) the request needs, don't guess --
+  call `ask_user_question`. This is about *which domain* the request belongs to,
+  e.g. "did you mean the file on disk, or a joke about files?" -- not about any
+  specific tool's input, that's `tool-call`'s job once a skill is loaded.
+- Ask about exactly one thing, prefer a closed-ended question over an open one, and
+  keep it to one short sentence -- put it in `question`, not as separate reply text.
+  Don't ask about anything already stated or reasonably inferable.
 
 ## Response
 
 Exactly one JSON codeblock, nothing else -- no prose, no reasoning. One key,
-`tool_use`, a list of `{"name": "load_skill", "input": {"skill_name": ...}}`.
-Always present, `[]` when nothing matches.
+`tool_use`, a list of `{"name": ..., "input": {...}}`. Always present, `[]` when
+nothing matches.
 
 ```json
 {
   "tool_use": [
     { "name": "load_skill", "input": { "skill_name": "read-file" } }
+  ]
+}
+```
+
+```json
+{
+  "tool_use": [
+    { "name": "ask_user_question", "input": { "question": "Did you mean an actual file, or do you want a joke about files?" } }
   ]
 }
 ```

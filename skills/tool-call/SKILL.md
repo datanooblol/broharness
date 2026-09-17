@@ -17,7 +17,14 @@ below, built fresh each call from the currently-loaded skill's own tools.
 
 - Pick every tool that matches the request -- none, one, or several.
 - Never invent a tool name or input field not listed in Available Tools.
-- Missing or ambiguous input: use `ask_user_question` instead of guessing.
+- If a tool clearly applies but one of its required inputs is missing or
+  ambiguous, don't guess a value -- call `ask_user_question` instead. This is
+  about *filling in a specific input*, e.g. "which file did you mean?" -- not
+  about which skill or domain the request belongs to, that was already settled
+  by `skill-call` before this step ever ran.
+- Ask about exactly one thing, prefer a closed-ended question over an open one, and
+  keep it to one short sentence -- put it in `question`, not as separate reply text.
+  Don't ask about anything already stated or reasonably inferable.
 
 ## Response
 
@@ -29,6 +36,14 @@ nothing matches.
 {
   "tool_use": [
     { "name": "read_file", "input": { "pattern": "skills/read-file/SKILL.md" } }
+  ]
+}
+```
+
+```json
+{
+  "tool_use": [
+    { "name": "ask_user_question", "input": { "question": "Which file did you mean?" } }
   ]
 }
 ```
