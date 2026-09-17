@@ -1,6 +1,6 @@
 ---
 name: tell-joke
-description: Tell a joke on request -- dad jokes, puns, or a mix of both. Use when the user asks for a joke, wants to be entertained, or needs a laugh.
+description: Tell a joke on request or when detecting that users feel bad/upset or ask to lighten their moods-- dad jokes, puns, or a mix of both. Use when the user asks for a joke, wants to be entertained, or needs a laugh.
 version: v0.1.0
 tags: [fun, entertainment]
 status: experiment

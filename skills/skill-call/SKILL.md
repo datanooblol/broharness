@@ -13,20 +13,32 @@ Pick skills only -- never a tool. This runs before `tool-call`; only skill names
 and one-line descriptions are visible here, not tools. The caller appends an
 `## Available Skills` section below, built fresh each call from registered skills.
 
+A skill is never called directly -- it's loaded via the fixed `load_skill` tool,
+one call per matching skill. This is why the response shape below is identical to
+`tool-call`'s: both are "pick from a list of callable things," so the same parsing
+function handles either response.
+
 ## Instructions
 
-- Pick every skill that genuinely matches the request -- none, one, or several.
+- For every skill that genuinely matches the request, call `load_skill` with that
+  skill's name -- none, one, or several calls.
 - Never invent a skill name not listed in Available Skills.
+- Missing or ambiguous request: use `ask_user_question` instead of guessing.
 
 ## Response
 
 Exactly one JSON codeblock, nothing else -- no prose, no reasoning. One key,
-`skill_names`, a list of strings. Always present, `[]` when nothing matches.
+`tool_use`, a list of `{"name": "load_skill", "input": {"skill_name": ...}}`.
+Always present, `[]` when nothing matches.
 
 ```json
-{"skill_names": ["read-file"]}
+{
+  "tool_use": [
+    { "name": "load_skill", "input": { "skill_name": "read-file" } }
+  ]
+}
 ```
 
 ```json
-{"skill_names": []}
+{ "tool_use": [] }
 ```

@@ -17,7 +17,7 @@ below, built fresh each call from the currently-loaded skill's own tools.
 
 - Pick every tool that matches the request -- none, one, or several.
 - Never invent a tool name or input field not listed in Available Tools.
-- Missing or ambiguous input: use `ask_followup_question` instead of guessing.
+- Missing or ambiguous input: use `ask_user_question` instead of guessing.
 
 ## Response
 
@@ -26,9 +26,13 @@ Exactly one JSON codeblock, nothing else -- no prose, no reasoning. One key,
 nothing matches.
 
 ```json
-{"tool_use": [{"name": "read_file", "input": {"pattern": "skills/read-file/SKILL.md"}}]}
+{
+  "tool_use": [
+    { "name": "read_file", "input": { "pattern": "skills/read-file/SKILL.md" } }
+  ]
+}
 ```
 
 ```json
-{"tool_use": []}
+{ "tool_use": [] }
 ```
