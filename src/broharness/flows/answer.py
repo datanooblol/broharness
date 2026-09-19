@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process
+from broharness.data_model import State, Process, record_usage
 from broharness.llms.bedrock import SystemMessage, AIMessage
 from broharness.toolblock import tool_to_yaml, load_skill_tool, ask_user_question_tool
 from broharness.codeblock import parse_json_codeblock
@@ -35,6 +35,7 @@ class Answer(BaseTask):
                 local_prompt = DEFAULT_SYSTEM_PROMPT
             response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.ANSWER)
             state.debug.append(response)
+            record_usage(state, "ANSWER", state.model_id.ANSWER, response)
             text = response['content'][0]['text'].strip()
             if text.endswith('?'):
                 # Answer has no tool-calling contract of its own -- it can

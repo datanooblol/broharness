@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process, all_already_executed
+from broharness.data_model import State, Process, all_already_executed, record_usage
 from broharness.llms.bedrock import SystemMessage, AIMessage
 from broharness.toolblock import tool_to_yaml, load_skill_tool, ask_user_question_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
@@ -30,6 +30,7 @@ class SkillCall(BaseTask):
             state.error_message = ''
             response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.XXX_CALL)
             state.debug.append(response)
+            record_usage(state, "XXX_CALL", state.model_id.XXX_CALL, response)
             candidated_tools = parse_json_codeblock(response['content'][0]['text']).get('tool_use', [])
             state.candidated_tools = candidated_tools
             if not candidated_tools:

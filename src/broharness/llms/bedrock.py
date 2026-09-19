@@ -23,6 +23,8 @@ def input_fn(
     return model.converse(**kwargs)
 
 def output_fn(response:Any)->Any:
-    return response['output']['message']
+    message = response['output']['message']
+    message['usage'] = response.get('usage', {})
+    return message
     
 bedrock = BaseContract(input_fn=input_fn, output_fn=output_fn)

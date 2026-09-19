@@ -43,6 +43,7 @@ class State:
     retry_count:int = field(metadata=dict(description="track how many times `FAIL_RECOVERY` is striggered"), default=0)
     max_retries:int = field(metadata=dict(description="retry only n times with `FAIL_RECOVERY`"), default=3)
     executed_calls:list = field(metadata=dict(description="every {name, input} ToolUse has actually run this session, used to detect a repeated request"), default_factory=list)
+    usage:dict = field(metadata=dict(description="input/output token usage this session, nested state.usage[slot][model_id] -- slot is the LLMUse field name (e.g. 'XXX_CALL'), so usage is visible both per-role and per-model"), default_factory=dict)
 
 
 def all_already_executed(candidated_tools: list, executed_calls: list) -> bool:
@@ -51,3 +52,20 @@ def all_already_executed(candidated_tools: list, executed_calls: list) -> bool:
     have. Used to skip straight to ANSWER instead of re-running (or re-asking
     the model to reconsider) something already done."""
     return bool(candidated_tools) and all(t in executed_calls for t in candidated_tools)
+
+
+def record_usage(state: "State", slot: str, model_id: str, response: dict) -> None:
+    """Accumulates one call's input/output tokens into state.usage[slot][model_id].
+    slot is the LLMUse field name the call was made under (e.g. "XXX_CALL",
+    "ANSWER"), model_id is the actual model that served it -- nesting both
+    means usage can be summed either way: per-role (which step costs the
+    most) or per-model (real $ cost, if a role's model changes mid-session).
+    """
+    usage = response.get('usage')
+    if not usage:
+        return
+    slot_entry = state.usage.setdefault(slot, {})
+    entry = slot_entry.setdefault(model_id, {"input_tokens": 0, "output_tokens": 0, "call_count": 0})
+    entry["input_tokens"] += usage.get("inputTokens", 0)
+    entry["output_tokens"] += usage.get("outputTokens", 0)
+    entry["call_count"] += 1
