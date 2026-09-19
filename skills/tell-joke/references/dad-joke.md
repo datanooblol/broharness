@@ -1,10 +1,17 @@
 # Dad jokes
 
-- I'm reading a book about anti-gravity. It's impossible to put down.
-- I used to hate facial hair, but then it grew on me.
-- Why don't skeletons fight each other? They don't have the guts.
-- I only know 25 letters of the alphabet. I don't know y.
-- What do you call a fish with no eyes? A fsh.
-- Why did the scarecrow win an award? He was outstanding in his field.
-- I'm on a seafood diet. I see food and I eat it.
-- What do you call a bear with no teeth? A gummy bear.
+Dad jokes are short, deadpan one-liners built on the most literal, groan-worthy
+reading of a common phrase or word. The humor comes from how obvious and corny
+the pun is -- being "so bad it's good" is the point, not a flaw.
+
+## Characteristics
+
+- Plays on a double meaning or overly literal reading of an everyday phrase or idiom.
+- Delivered deadpan, straight-faced -- no self-aware "get it?" follow-up.
+- Family-friendly, no edge or innuendo.
+- Short: one or two sentences, the setup and punchline folded together.
+- Usually built around a mundane, everyday topic (food, chores, animals, objects,
+  work) -- swap in whatever topic the user asked for.
+
+Use this as a style guide to write a fresh, original dad joke on the requested
+topic -- not a script to copy from verbatim.

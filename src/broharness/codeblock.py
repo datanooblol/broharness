@@ -15,6 +15,20 @@ class CodeBlockError(Exception):
     or its content fails to decode."""
 
 
+class NoCodeBlockError(CodeBlockError):
+    """Raised when there's no cleanly-isolated codeblock in the response --
+    either no fence at all, or a fence with extra text before/after it. Both
+    mean the same thing downstream: the model didn't stick to "nothing but the
+    codeblock," usually because it answered (or asked something) in free text
+    instead of, or alongside, following the contract. Callers that want to
+    treat "gave up on the format" differently from "tried and slipped" should
+    catch this before the general CodeBlockError."""
+
+
+class MultipleCodeBlocksError(CodeBlockError):
+    """Raised when more than one matching codeblock was found."""
+
+
 class CodeBlockParser:
     """Extracts the single fenced codeblock of a given language from LLM
     output. Subclass and override `decode` to parse the extracted text (JSON,
@@ -35,13 +49,24 @@ class CodeBlockParser:
         return re.compile(rf"```{tag}[ \t]*\r?\n(.*?)(?:```|\Z)", re.DOTALL)
 
     def extract(self, text: str) -> str:
-        matches = self._pattern().findall(text)
+        matches = list(self._pattern().finditer(text))
         label = f"```{self.language}```" if self.language else "```...```"
         if not matches:
-            raise CodeBlockError(f"no {label} codeblock found in response")
+            raise NoCodeBlockError(f"no {label} codeblock found in response")
         if len(matches) > 1:
-            raise CodeBlockError(f"expected exactly one {label} codeblock, found {len(matches)}")
-        return matches[0].strip()
+            raise MultipleCodeBlocksError(f"expected exactly one {label} codeblock, found {len(matches)}")
+        match = matches[0]
+        before, after = text[:match.start()], text[match.end():]
+        if before.strip() or after.strip():
+            # a codeblock exists, but it isn't the whole response -- treat
+            # the same as no codeblock at all, since whatever's outside the
+            # fence (often a real question or answer the model tacked on) is
+            # otherwise silently discarded by only ever reading match.group(1)
+            raise NoCodeBlockError(
+                f"response must contain nothing but the {label} codeblock -- "
+                f"found extra text outside it"
+            )
+        return match.group(1).strip()
 
     def decode(self, raw: str) -> Any:
         """Override to turn the extracted text into a real value. Default:
