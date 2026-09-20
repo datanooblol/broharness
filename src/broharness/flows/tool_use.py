@@ -39,7 +39,30 @@ class ToolUse(BaseTask):
             if arg['skill_name'] not in state.registered_skills:
                 state.registered_skills[arg['skill_name']] = state.session_tools[fn](**arg)
                 print('load_skill passed')
+                self._auto_register_scripts(state, arg['skill_name'])
             return True
+
+    def _auto_register_scripts(self, state:State, skill_name:str)->None:
+        # A model repeatedly proved unreliable at remembering to call
+        # load_tool before using a script, even after explicit corrective
+        # errors -- so registration happens automatically here instead of
+        # depending on that extra step. This is free (just introspecting
+        # get_args()), so there's no real cost to doing it eagerly.
+        skill_path = state.skill_control.get_skill_path(skill_name)
+        if skill_path is None:
+            return
+        scripts_dir = skill_path / 'scripts'
+        if not scripts_dir.is_dir():
+            return
+        for script_path in sorted(scripts_dir.glob('*.py')):
+            try:
+                tool = state.session_tools['load_tool'](skill_name=skill_name, path=f'scripts/{script_path.name}')
+                state.registered_tools[tool.name] = tool
+                print(f'auto-registered {tool.name}')
+            except Exception as e:
+                # one broken script (e.g. no get_args()) shouldn't block the
+                # rest of the skill's tools from registering.
+                print(f'could not auto-register {script_path.name}: {e}')
 
     def load_skill_extension(self, state:State, fn, arg)->bool|None:
         if (fn == 'load_skill_extension'):
@@ -59,6 +82,14 @@ class ToolUse(BaseTask):
             return True
 
     def script_call(self, state:State, fn, arg):
+        if fn not in state.registered_tools:
+            # a bare KeyError here just says "'fn'" -- no hint of what went
+            # wrong or how to fix it, so a retry just repeats the same
+            # mistake instead of correcting it. Spell out the fix.
+            raise ToolUseError(
+                f"'{fn}' is not a registered tool yet -- call load_tool first "
+                f"to register its script, then call '{fn}' again."
+            )
         tool = state.registered_tools[fn]
         result = _script_call(state.root, tool.path, arg)
         state.tool_results.append({fn: result})

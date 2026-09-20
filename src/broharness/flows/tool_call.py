@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process, all_already_executed, record_usage
+from broharness.data_model import State, Process, all_already_executed, record_usage, render_tool_results
 from broharness.llms.bedrock import SystemMessage
 from broharness.toolblock import tool_to_yaml, ask_user_question_tool, load_skill_extension_tool, load_tool_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
@@ -30,8 +30,7 @@ class ToolCall(BaseTask):
                 local_prompt = f"{local_prompt}\n## Error Message:\n{state.error_message}"
             state.error_message = ''
             if state.tool_results:
-                tool_results = "\n".join([f"\t- {t}" for t in state.tool_results])
-                local_prompt = f"{local_prompt}\n## Tool Use and Result:\n{tool_results}"
+                local_prompt = f"{local_prompt}\n## Tool Use and Result:\n{render_tool_results(state.tool_results)}"
             response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.XXX_CALL)
             state.debug.append(response)
             record_usage(state, "XXX_CALL", state.model_id.XXX_CALL, response)

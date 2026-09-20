@@ -38,7 +38,14 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
-    matches = sorted(root.glob(pattern))
+    try:
+        matches = sorted(root.glob(pattern))
+    except ValueError as e:
+        # e.g. "**" written as part of a name instead of its own path
+        # component ("**foo.md" instead of "**/foo.md") -- a real glob
+        # syntax error, not a "nothing matched" case.
+        print(f"invalid glob pattern: {pattern} ({e})", file=sys.stderr)
+        sys.exit(1)
 
     if not matches:
         print(f"no file matches pattern: {pattern}", file=sys.stderr)

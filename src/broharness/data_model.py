@@ -54,6 +54,18 @@ def all_already_executed(candidated_tools: list, executed_calls: list) -> bool:
     return bool(candidated_tools) and all(t in executed_calls for t in candidated_tools)
 
 
+def render_tool_results(tool_results: list) -> str:
+    """Renders state.tool_results (a list of single-key {name: output} dicts)
+    as readable text, one real block per result -- avoids dumping raw Python
+    dict repr (values with escaped \\n, everything squashed onto one line)
+    into a prompt, which makes real content easy to miss or misread."""
+    return "\n".join(
+        f"### {name}\n{content}"
+        for entry in tool_results
+        for name, content in entry.items()
+    )
+
+
 def record_usage(state: "State", slot: str, model_id: str, response: dict) -> None:
     """Accumulates one call's input/output tokens into state.usage[slot][model_id].
     slot is the LLMUse field name the call was made under (e.g. "XXX_CALL",
