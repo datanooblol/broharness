@@ -72,9 +72,10 @@ wheels = [
 
 [[package]]
 name = "broharness"
-version = "0.0.0"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "boto3" },
     { name = "broflow" },
     { name = "brollm" },
     { name = "broskill" },
@@ -86,13 +87,13 @@ dev = [
     { name = "ipykernel" },
 ]
 llm = [
-    { name = "boto3" },
     { name = "httpx" },
     { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.43.93" },
     { name = "broflow", specifier = ">=0.2.0" },
     { name = "brollm", specifier = ">=0.2.0" },
     { name = "broskill", specifier = ">=0.1.1" },
@@ -102,7 +103,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [{ name = "ipykernel", specifier = ">=7.3.0" }]
 llm = [
-    { name = "boto3", specifier = ">=1.43.93" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "requests", specifier = ">=2.34.2" },
 ]

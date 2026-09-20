@@ -3,6 +3,7 @@ from broharness.data_model import State, Process, all_already_executed, record_u
 from broharness.llms.bedrock import SystemMessage
 from broharness.toolblock import tool_to_yaml, ask_user_question_tool, load_skill_extension_tool, load_tool_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
+from broharness.meta_skills import load_meta_skill
 import yaml
 
 class ToolCall(BaseTask):
@@ -19,7 +20,8 @@ class ToolCall(BaseTask):
                 f"Skill name: {s}\n-----\n{p}\n{state.extension_skills.get(s, '')}"
                 for s, p in state.registered_skills.items()
             ])
-            tool_prompt = state.skill_control.load_skill('tool-call')
+            # bundled with the package, see skill_call.py's same change.
+            tool_prompt = load_meta_skill('tool-call')
             available_tools = [
                 tool_to_yaml(t) 
                 for t in state.registered_tools.values() if t.name not in ['load_skill_tool']

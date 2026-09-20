@@ -3,6 +3,7 @@ from broharness.data_model import State, Process, all_already_executed, record_u
 from broharness.llms.bedrock import SystemMessage, AIMessage
 from broharness.toolblock import tool_to_yaml, load_skill_tool, ask_user_question_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
+from broharness.meta_skills import load_meta_skill
 import yaml
 
 class SkillCall(BaseTask):
@@ -17,8 +18,11 @@ class SkillCall(BaseTask):
         trace(state, __file__)
         try:
             _ = state.skill_control.list_skills()
-            skill_prompt = state.skill_control.load_skill('skill-call')
-            available_skills = [f"- {s.name}: {s.description}" for s in state.skill_control.list_skills() if s.name not in ['skill-call', 'tool-call']]
+            # bundled with the package, not loaded from the user's skills/
+            # folder -- this is the tool-calling protocol itself, not user
+            # content, so it must never depend on what that folder contains.
+            skill_prompt = load_meta_skill('skill-call')
+            available_skills = [f"- {s.name}: {s.description}" for s in state.skill_control.list_skills()]
             available_skills = f"## Available Skills:\n{'\n'.join(available_skills)}"
             available_tools = [
                 tool_to_yaml(t) 

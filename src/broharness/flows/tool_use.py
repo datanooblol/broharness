@@ -37,7 +37,21 @@ class ToolUse(BaseTask):
     def load_skill(self, state:State, fn, arg)->bool|None:
         if fn == 'load_skill':
             if arg['skill_name'] not in state.registered_skills:
-                state.registered_skills[arg['skill_name']] = state.session_tools[fn](**arg)
+                prompt = state.session_tools[fn](**arg)
+                if prompt is None:
+                    # SkillControl.load_skill returns None (not an
+                    # exception) for a name that doesn't exist under
+                    # skill_dir -- without this check, a hallucinated skill
+                    # name would silently "succeed" and store None, which
+                    # later renders as the literal text "None" in a prompt
+                    # instead of ever telling the model the skill it named
+                    # doesn't exist.
+                    raise ToolUseError(
+                        f"'{arg['skill_name']}' is not a real skill -- no "
+                        f"skill directory by that name exists. Check the "
+                        f"available skills list and use one of those names."
+                    )
+                state.registered_skills[arg['skill_name']] = prompt
                 trace(state, 'load_skill passed')
                 self._auto_register_scripts(state, arg['skill_name'])
             return True
