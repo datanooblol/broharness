@@ -71,6 +71,43 @@ wheels = [
 ]
 
 [[package]]
+name = "broharness"
+version = "0.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "broflow" },
+    { name = "brollm" },
+    { name = "broskill" },
+    { name = "brospec" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+]
+llm = [
+    { name = "boto3" },
+    { name = "httpx" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "broflow", specifier = ">=0.2.0" },
+    { name = "brollm", specifier = ">=0.2.0" },
+    { name = "broskill", specifier = ">=0.1.1" },
+    { name = "brospec", specifier = ">=0.1.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ipykernel", specifier = ">=7.3.0" }]
+llm = [
+    { name = "boto3", specifier = ">=1.43.93" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "requests", specifier = ">=2.34.2" },
+]
+
+[[package]]
 name = "brollm"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -817,43 +854,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521 },
-]
-
-[[package]]
-name = "study-on-agent"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "broflow" },
-    { name = "brollm" },
-    { name = "broskill" },
-    { name = "brospec" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ipykernel" },
-]
-llm = [
-    { name = "boto3" },
-    { name = "httpx" },
-    { name = "requests" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "broflow", specifier = ">=0.2.0" },
-    { name = "brollm", specifier = ">=0.2.0" },
-    { name = "broskill", specifier = ">=0.1.1" },
-    { name = "brospec", specifier = ">=0.1.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ipykernel", specifier = ">=7.3.0" }]
-llm = [
-    { name = "boto3", specifier = ">=1.43.93" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "requests", specifier = ">=2.34.2" },
 ]
 
 [[package]]

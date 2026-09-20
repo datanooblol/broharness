@@ -66,7 +66,7 @@ fence.
 ```json
 {
   "tool_use": [
-    { "name": "load_skill_extension", "input": { "skill_name": "read-file", "path": "references/errors.md" } }
+    { "name": "load_skill_extension", "input": { "skill_name": "file-ops", "path": "references/errors.md" } }
   ]
 }
 ```
@@ -74,7 +74,7 @@ fence.
 ```json
 {
   "tool_use": [
-    { "name": "read_file", "input": { "pattern": "skills/read-file/SKILL.md" } }
+    { "name": "read_file", "input": { "pattern": "skills/file-ops/SKILL.md" } }
   ]
 }
 ```

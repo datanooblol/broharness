@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process
+from broharness.data_model import State, Process, trace
 from broharness.llms.bedrock import UserMessage, AIMessage
 
 FALLBACK_MESSAGE = "Sorry, I ran into a problem and couldn't complete this."
@@ -12,7 +12,7 @@ class FailRecovery(BaseTask):
         self.system_prompt = system_prompt
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         if state.retry_count < state.max_retries:
             state.retry_count += 1
             self.set_next(state.return_to)

@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process, all_already_executed, record_usage
+from broharness.data_model import State, Process, all_already_executed, record_usage, looks_like_a_question, trace
 from broharness.llms.bedrock import SystemMessage, AIMessage
 from broharness.toolblock import tool_to_yaml, load_skill_tool, ask_user_question_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
@@ -14,8 +14,9 @@ class SkillCall(BaseTask):
 
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         try:
+            _ = state.skill_control.list_skills()
             skill_prompt = state.skill_control.load_skill('skill-call')
             available_skills = [f"- {s.name}: {s.description}" for s in state.skill_control.list_skills() if s.name not in ['skill-call', 'tool-call']]
             available_skills = f"## Available Skills:\n{'\n'.join(available_skills)}"
@@ -28,9 +29,9 @@ class SkillCall(BaseTask):
             if state.error_message:
                 local_prompt = f"{local_prompt}\n## Error Message:\n{state.error_message}"
             state.error_message = ''
-            response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.XXX_CALL)
+            response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.SKILL_CALL)
             state.debug.append(response)
-            record_usage(state, "XXX_CALL", state.model_id.XXX_CALL, response)
+            record_usage(state, "SKILL_CALL", state.model_id.SKILL_CALL, response)
             candidated_tools = parse_json_codeblock(response['content'][0]['text']).get('tool_use', [])
             state.candidated_tools = candidated_tools
             if not candidated_tools:
@@ -43,11 +44,12 @@ class SkillCall(BaseTask):
             state.return_to = Process.TOOL_CALL
             return state
         except NoCodeBlockError:
-            # see tool_call.py -- text ending in "?" is treated as a dropped
-            # question and routed to the real ask flow directly rather than
-            # gambling on a corrective retry.
+            # see tool_call.py -- text whose final sentence reads as a real
+            # question is treated as a dropped question and routed to the
+            # real ask flow directly rather than gambling on a corrective
+            # retry.
             text = response['content'][0]['text'].strip()
-            if text.endswith('?'):
+            if looks_like_a_question(text):
                 # see tool_call.py -- goes through ToolUse like a real call.
                 state.candidated_tools = [{"name": "ask_user_question", "input": {"question": text}}]
                 self.set_next(Process.TOOL_USE)
@@ -64,7 +66,7 @@ class SkillCall(BaseTask):
             return state
         except Exception as e:
             state.error_message = str(e)
-            print(str(e))
+            trace(state, str(e))
             state.return_to = Process.SKILL_CALL
             self.set_next(Process.FAIL_RECOVERY)
             return state

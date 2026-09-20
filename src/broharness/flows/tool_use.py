@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process
+from broharness.data_model import State, Process, trace
 from broharness.llms.bedrock import AIMessage
 from broskill.processing.tool import to_args
 import subprocess
@@ -31,14 +31,14 @@ class ToolUse(BaseTask):
     def ask_user_question(self, state:State, fn, arg)->bool|None:
         if (fn == 'ask_user_question') and (arg['question']):
             state.question = arg['question']
-            print('ask_user_question passed')
+            trace(state, 'ask_user_question passed')
             return True
 
     def load_skill(self, state:State, fn, arg)->bool|None:
         if fn == 'load_skill':
             if arg['skill_name'] not in state.registered_skills:
                 state.registered_skills[arg['skill_name']] = state.session_tools[fn](**arg)
-                print('load_skill passed')
+                trace(state, 'load_skill passed')
                 self._auto_register_scripts(state, arg['skill_name'])
             return True
 
@@ -58,19 +58,45 @@ class ToolUse(BaseTask):
             try:
                 tool = state.session_tools['load_tool'](skill_name=skill_name, path=f'scripts/{script_path.name}')
                 state.registered_tools[tool.name] = tool
-                print(f'auto-registered {tool.name}')
+                trace(state, f'auto-registered {tool.name}')
             except Exception as e:
                 # one broken script (e.g. no get_args()) shouldn't block the
                 # rest of the skill's tools from registering.
-                print(f'could not auto-register {script_path.name}: {e}')
+                trace(state, f'could not auto-register {script_path.name}: {e}')
 
     def load_skill_extension(self, state:State, fn, arg)->bool|None:
         if (fn == 'load_skill_extension'):
+            if arg['skill_name'] not in state.registered_skills:
+                # Checked against state.registered_skills (this
+                # conversation's own record), not delegated straight to
+                # SkillControl -- SkillControl tracks "is this skill
+                # loaded" as its own internal state, not scoped per
+                # conversation, so a skill loaded in an earlier, unrelated
+                # run sharing the same SkillControl instance could let a
+                # wrong skill_name silently succeed instead of failing.
+                # Naming the actually-loaded skill(s) directly, rather than
+                # a generic "check you meant..." -- a vague pointer left
+                # the model repeating the exact same wrong skill_name
+                # verbatim across every retry instead of correcting it, and
+                # suggesting "call load_skill with skill_name=<the wrong
+                # name>" was actively bad advice: it handed back the
+                # model's own mistaken value as if it were a valid skill to
+                # load, when it isn't one at all (skill_name is a skill's
+                # own name, not a reference file's basename).
+                loaded = ', '.join(state.registered_skills) or 'none yet'
+                raise ToolUseError(
+                    f"'{arg['skill_name']}' is not a loaded skill in this "
+                    f"conversation -- skill_name must be an actual skill's "
+                    f"name, not a reference file's name. Currently loaded "
+                    f"skill(s): {loaded}. If the reference you want belongs "
+                    f"to one of those, use its skill_name instead, e.g. "
+                    f"skill_name='{next(iter(state.registered_skills), '...')}'."
+                )
             if (arg['skill_name'] not in state.extension_skills):
                 state.extension_skills[arg['skill_name']] = state.session_tools[fn](**arg)
             else:
                 state.extension_skills[arg['skill_name']] += state.session_tools[fn](**arg)
-            print('load_skill_extension passed')
+            trace(state, 'load_skill_extension passed')
             return True
 
     def load_tool(self, state:State, fn, arg)->bool|None:
@@ -78,7 +104,7 @@ class ToolUse(BaseTask):
             if arg['skill_name'] not in state.registered_tools:
                 tool = state.session_tools[fn](**arg)
                 state.registered_tools[tool.name] = tool
-                print('load_tool passed')
+                trace(state, 'load_tool passed')
             return True
 
     def script_call(self, state:State, fn, arg):
@@ -96,10 +122,10 @@ class ToolUse(BaseTask):
         return result
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         try:
             asked = False
-            print(state.candidated_tools)
+            trace(state, state.candidated_tools)
             while state.candidated_tools:
                 t = state.candidated_tools.pop(0)
                 fn = t.get('name', None)
@@ -117,7 +143,7 @@ class ToolUse(BaseTask):
             return state
         except Exception as e:
             state.error_message = str(e)
-            print(str(e))
+            trace(state, str(e))
             # don't touch state.return_to here -- whoever routed into TOOL_USE
             # (SkillCall, ToolCall, or now Answer) already set it to itself
             # before calling in, and that's still the correct resume point.

@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process, all_already_executed, record_usage, render_tool_results
+from broharness.data_model import State, Process, all_already_executed, record_usage, render_tool_results, looks_like_a_question, trace
 from broharness.llms.bedrock import SystemMessage
 from broharness.toolblock import tool_to_yaml, ask_user_question_tool, load_skill_extension_tool, load_tool_tool
 from broharness.codeblock import parse_json_codeblock, NoCodeBlockError
@@ -13,7 +13,7 @@ class ToolCall(BaseTask):
         self.system_prompt = system_prompt
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         try:
             skill_prompt = "\n".join([
                 f"Skill name: {s}\n-----\n{p}\n{state.extension_skills.get(s, '')}"
@@ -31,9 +31,9 @@ class ToolCall(BaseTask):
             state.error_message = ''
             if state.tool_results:
                 local_prompt = f"{local_prompt}\n## Tool Use and Result:\n{render_tool_results(state.tool_results)}"
-            response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.XXX_CALL)
+            response = self.llm(messages=state.session_messages, system_prompt=SystemMessage(local_prompt), modelId=state.model_id.TOOL_CALL)
             state.debug.append(response)
-            record_usage(state, "XXX_CALL", state.model_id.XXX_CALL, response)
+            record_usage(state, "TOOL_CALL", state.model_id.TOOL_CALL, response)
             candidated_tools = parse_json_codeblock(response['content'][0]['text']).get('tool_use', [])
             state.candidated_tools = candidated_tools
             if not candidated_tools:
@@ -52,12 +52,12 @@ class ToolCall(BaseTask):
             # A model can be stubborn about this even after being told to
             # reformat (observed: 3 corrective retries, still plain text
             # every time) -- so don't gamble another retry on a question that
-            # reads like a question. Text ending in "?" is almost certainly a
-            # dropped ask_user_question call; route it into the real ask flow
-            # directly instead of letting it get silently treated as a final
-            # answer.
+            # reads like a question. A final sentence that's itself a real
+            # question is almost certainly a dropped ask_user_question call;
+            # route it into the real ask flow directly instead of letting it
+            # get silently treated as a final answer.
             text = response['content'][0]['text'].strip()
-            if text.endswith('?'):
+            if looks_like_a_question(text):
                 # wrap it in the same shape a real tool_use call would have,
                 # so it flows through ToolUse (and executed_calls bookkeeping)
                 # exactly like any other tool call, not a special-cased path.
@@ -79,7 +79,7 @@ class ToolCall(BaseTask):
             return state
         except Exception as e:
             state.error_message = str(e)
-            print(str(e))
+            trace(state, str(e))
             state.return_to = Process.TOOL_CALL
             self.set_next(Process.FAIL_RECOVERY)
             return state

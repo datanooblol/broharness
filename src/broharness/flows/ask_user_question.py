@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process
+from broharness.data_model import State, Process, trace
 from broharness.llms.bedrock import UserMessage, AIMessage
 
 class AskUserQuestion(BaseTask):
@@ -10,7 +10,7 @@ class AskUserQuestion(BaseTask):
         self.system_prompt = system_prompt
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         try:
             user_answer = input(state.question)
             state.session_messages.append(AIMessage(state.question))
@@ -22,7 +22,7 @@ class AskUserQuestion(BaseTask):
             return state
         except Exception as e:
             state.error_message = str(e)
-            print(str(e))
+            trace(state, str(e))
             state.return_to = Process.ASK_USER_QUESTION
             self.set_next(Process.FAIL_RECOVERY)
             return state

@@ -64,7 +64,7 @@ fence.
 ```json
 {
   "tool_use": [
-    { "name": "load_skill", "input": { "skill_name": "read-file" } }
+    { "name": "load_skill", "input": { "skill_name": "file-ops" } }
   ]
 }
 ```

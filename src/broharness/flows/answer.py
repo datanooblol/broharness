@@ -1,5 +1,5 @@
 from broflow import BaseTask
-from broharness.data_model import State, Process, record_usage, render_tool_results
+from broharness.data_model import State, Process, record_usage, render_tool_results, tool_results_are_empty, looks_like_a_question, trace
 from broharness.llms.bedrock import SystemMessage, AIMessage
 from broharness.toolblock import tool_to_yaml, load_skill_tool, ask_user_question_tool
 from broharness.codeblock import parse_json_codeblock
@@ -27,13 +27,12 @@ ANSWER_SYSTEM_PROMPT = (
 
 class Answer(BaseTask):
     possible_next = {Process.END, Process.TOOL_USE}
-    def __init__(self, name, llm, system_prompt:str):
+    def __init__(self, name, llm):
         super().__init__(name=name)
         self.llm = llm
-        self.system_prompt = system_prompt
 
     def __call__(self, state:State)->State:
-        print(__file__)
+        trace(state, __file__)
         try:
             # skill_prompt = "\n".join([f"{p}"  for s, p in state.registered_skills.items()])
             skill_prompt = "\n".join([
@@ -41,8 +40,12 @@ class Answer(BaseTask):
                 for s, p in state.registered_skills.items()
             ])
             local_prompt = ANSWER_SYSTEM_PROMPT
-            if self.system_prompt:
-                local_prompt = f"{local_prompt}\n{self.system_prompt}"
+            if state.system_prompt:
+                # caller-supplied persona/tone, e.g. "respond in bro-tone" --
+                # lives on State (built outside Harness, alongside root/
+                # skill_dir/model_id/verbose), not baked into the Answer task
+                # instance at registry-construction time.
+                local_prompt = f"{local_prompt}\n{state.system_prompt}"
             if skill_prompt:
                 local_prompt = f"{local_prompt}\n{skill_prompt}"
             if state.tool_results:
@@ -51,6 +54,21 @@ class Answer(BaseTask):
                 # it has no way to answer with real fetched content and can
                 # end up hallucinating a fake tool call instead.
                 local_prompt = f"{local_prompt}\n## Tool Use and Result:\n{render_tool_results(state.tool_results)}"
+                if tool_results_are_empty(state.tool_results):
+                    # A "nothing matches" message reads enough like real
+                    # content, sitting quietly under the section above, that
+                    # this model has been observed inventing a plausible
+                    # answer around it anyway -- call it out explicitly,
+                    # right next to the result, instead of trusting the
+                    # general instruction above to be enough on its own.
+                    local_prompt = (
+                        f"{local_prompt}\n## Note: The result above found nothing -- "
+                        "it is not real content, do not describe it as if it were. "
+                        "Never invent file names, listings, or content to fill the "
+                        "gap. Tell the user plainly that nothing was found and, if "
+                        "helpful, suggest a broader search or ask them to confirm "
+                        "the exact name or path."
+                    )
             if state.error_message:
                 # set when FailRecovery gives up and falls through here with
                 # the underlying task still unresolved -- without this, Answer
@@ -63,7 +81,7 @@ class Answer(BaseTask):
             state.debug.append(response)
             record_usage(state, "ANSWER", state.model_id.ANSWER, response)
             text = response['content'][0]['text'].strip()
-            if text.endswith('?'):
+            if looks_like_a_question(text):
                 # Answer has no tool-calling contract of its own -- it can
                 # still genuinely need to ask something (e.g. ToolCall handed
                 # off here with the topic still unknown). Same handling as
@@ -83,7 +101,7 @@ class Answer(BaseTask):
             return state
         except Exception as e:
             state.error_message = str(e)
-            print(str(e))
+            trace(state, str(e))
             self.set_next(Process.FAIL_RECOVERY)
             state.return_to = Process.ANSWER
             return state
