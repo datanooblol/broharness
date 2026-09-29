@@ -12,67 +12,70 @@ status: experiment
 
 ### Reading and listing
 
-```mermaid
-flowchart TD
-    Start([Read or list request]) --> KnowExact{Exact file<br/>already known?}
-    KnowExact -->|yes| NarrowPattern[read_file.py with a glob pattern<br/>narrow enough to match<br/>exactly that one file]
-    KnowExact -->|no -- bare filename,<br/>no path given| SearchAnywhere[read_file.py with **/filename --<br/>exact-name search, not a guess]
-    KnowExact -->|no -- unsure which file,<br/>or want to see many| ListFirst[list_directory.py with a<br/>broader pattern first,<br/>then narrow down]
-    NarrowPattern --> MatchCount{How many<br/>files matched?}
-    SearchAnywhere --> MatchCount
-    MatchCount -->|exactly one| ReadIt[Read it]
-    MatchCount -->|more than one| AskCandidates[ask_user_question with the<br/>candidate list from the error --<br/>never pick one yourself,<br/>even if it looks obvious]
-    ListFirst --> Depth{Depth of the<br/>listing request?}
-    Depth -->|bare, e.g.<br/>what's in skills/| Shallow[list_directory.py, shallow<br/>pattern, e.g. skills/*]
-    Depth -->|explicit, e.g.<br/>list everything| Recursive[list_directory.py, recursive<br/>pattern, e.g. skills/**/*]
-    Shallow --> OneLocation{Pattern/location<br/>clear and singular?}
-    Recursive --> OneLocation
-    OneLocation -->|no -- unclear, or names<br/>more than one location| AskLocation[ask_user_question<br/>to clarify first]
-    OneLocation -->|yes| OneCallEach[One list_directory call per<br/>location -- fine to call more<br/>than once in the same response]
-```
+- If you already know the exact file the user means, use `scripts/read_file.py` with a
+  glob pattern narrow enough to match exactly that one file.
+- If the user names just a filename with no path (e.g. "what's in one-liner.md"), don't
+  guess its directory -- search for it anywhere in the project with `**/<filename>`
+  (e.g. `**/one-liner.md`). This isn't a guess, it's an exact-name search; if more than
+  one file shares that name, `read_file.py`'s normal ambiguous-match handling applies.
+- If `scripts/read_file.py`'s pattern matches more than one file, don't pick one
+  yourself even if it looks obvious -- call `ask_user_question` with the candidate
+  list from the error message and let the user choose.
+- If the user wants to see many files at once, or you aren't sure which single file they
+  mean, use `scripts/list_directory.py` first to see what matches a broader pattern, then
+  narrow down before reading.
+- `scripts/list_directory.py` lists both folders and files -- a folder entry is marked
+  with a trailing `/`. For a bare, depth-unspecified request ("what's in skills/",
+  "what folders are under X"), use a shallow pattern (`skills/*`) to show just the
+  immediate contents. For "list everything" / "show me all files" requests, use a
+  recursive pattern (`skills/**/*`) instead. Don't default to recursive for a plain
+  "what's in this folder" question -- that usually means one level, not a full tree.
+- `scripts/list_directory.py` only accepts one pattern per call. If the request is
+  unclear about which location/pattern is meant, or genuinely names more than one
+  distinct location (e.g. "files in both skills and notebooks"), call
+  `ask_user_question` to clarify first. Once it's clear, it's fine to call
+  `list_directory` more than once in the same response -- one call per location --
+  rather than forcing everything into a single combined pattern.
 
 ### Creating and updating
 
-```mermaid
-flowchart TD
-    Start([Create or update request]) --> KnowPath{Exact path known?}
-    KnowPath -->|no| Resolve[Resolve it first -- list_directory.py<br/>or ask -- never guess a path]
-    Resolve --> KnowPath
-    KnowPath -->|yes| ExistsUnclear{Unclear whether the<br/>file already exists?}
-    ExistsUnclear -->|yes| TryMatching[Try the tool matching what the user<br/>described -- if it fails because the file<br/>exists or doesn't, switch to the other tool,<br/>don't ask the user to pick a tool name]
-    ExistsUnclear -->|no, clearly new| PickCreate[create_file.py]
-    ExistsUnclear -->|no, clearly existing| PickUpdate[update_file.py]
-    TryMatching --> HaveContent
-    PickCreate --> HaveContent{Real content available --<br/>from the user's message or already<br/>shown in this conversation?}
-    PickUpdate --> HaveContent
-    HaveContent -->|no| AskContent[Ask the user for the content --<br/>never invent or guess it]
-    HaveContent -->|yes, going to<br/>create_file| DoCreate[Call create_file.py]
-    HaveContent -->|yes, going to<br/>update_file| WillOverwrite{Would this overwrite content the<br/>user didn't explicitly ask to replace?}
-    WillOverwrite -->|yes| ConfirmOverwrite[ask_user_question first -- name the file<br/>plainly, e.g. This will replace notes.md,<br/>go ahead?]
-    WillOverwrite -->|no -- request already<br/>made intent to overwrite explicit| DoUpdate[Call update_file.py]
-    ConfirmOverwrite --> DoUpdate
-```
+- `scripts/create_file.py` and `scripts/update_file.py` both take an exact `--path`,
+  never a glob pattern -- there's nothing to disambiguate for a write. If you don't
+  know the exact path yet, resolve it first (e.g. via `list_directory.py` or by asking)
+  rather than guessing.
+- Don't choose between create and update yourself when it's unclear whether the file
+  already exists -- try the one that matches what the user described, and if it fails
+  because the file already exists (or doesn't), switch to the other one rather than
+  asking the user to pick between two tool names they don't know about.
+- The content you write must come from the user's message or from something already
+  shown in this conversation (e.g. under `## Tool Use and Result`) -- never invent or
+  guess file content to fill the `--content` field. If you don't have real content to
+  write, ask the user for it instead of making something plausible up.
+- Before calling `update_file` in a way that would overwrite existing content the user
+  didn't explicitly ask to replace, confirm first with `ask_user_question`, naming the
+  file plainly (e.g. "This will replace the current content of `notes.md` -- go
+  ahead?"). Skip the confirmation only when the user's request already made the intent
+  to overwrite explicit (e.g. "replace the contents of notes.md with ...").
 
 ### Deleting
 
-```mermaid
-flowchart TD
-    Start([Delete request]) --> ExactPath[Exact --path only --<br/>delete_file.py never accepts a<br/>glob pattern, on purpose]
-    ExactPath --> AlwaysConfirm[Always ask_user_question first, naming the<br/>exact file -- e.g. Delete scratch/note.md,<br/>are you sure? -- never skip this even<br/>if the request sounds confident]
-    AlwaysConfirm --> Confirmed{User confirmed?}
-    Confirmed -->|no| Stop([Don't delete])
-    Confirmed -->|yes| CheckDir{Is the target<br/>a directory?}
-    CheckDir -->|yes| Refuse[Refuse -- tell the user removing a<br/>whole folder is out of scope for this tool]
-    CheckDir -->|no| DoDelete[Call delete_file.py]
-```
+- `scripts/delete_file.py` takes an exact `--path` only -- it does not accept a glob
+  pattern, on purpose, so it can never delete more than one file per call.
+- Always confirm with `ask_user_question` before calling `delete_file`, naming the exact
+  file (e.g. "Delete `scratch/note.md` -- are you sure?"). This is the real safety gate:
+  the script itself has no undo and no interactive prompt, so the confirmation has to
+  happen here, before the call is made. Never skip this even if the request sounds
+  confident.
+- `delete_file` refuses to delete a directory -- if the user wants to remove a whole
+  folder, tell them that's out of scope for this tool rather than trying a workaround.
 
-### Notes that don't fit as graph nodes
+### General
 
-- If the path or pattern the user gave is unclear or ambiguous for any
-  other reason not covered above, don't guess -- call `ask_user_question`.
-- Never try to work around a refusal from any of these scripts (e.g. by
-  rewriting the path to escape the project) -- all of them refuse paths
-  that leave the project root on purpose; tell the user it's out of scope.
+- If the path or pattern the user gave is unclear or ambiguous for any reason, don't
+  guess -- ask them to clarify. Call `ask_user_question`.
+- Never try to work around a refusal from any of these scripts (e.g. by rewriting the
+  path to escape the project) -- all of them refuse paths that leave the project root
+  on purpose.
 
 ## Errors
 
